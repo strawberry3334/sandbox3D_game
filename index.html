@@ -75,7 +75,7 @@
       font-family: sans-serif;
     }
 
-    /* Stamina bar (transparent) */
+    /* Stamina bar */
     #staminaBarContainer {
       position: absolute;
       bottom: 40px;
@@ -102,7 +102,7 @@
 </head>
 <body>
 
-<div id="info">P = Pause</div>
+<div id="info">P = Pause | 1 = Sword | Left Click = Attack</div>
 <div id="crosshair">+</div>
 
 <div id="staminaBarContainer">
@@ -114,23 +114,25 @@
   <button id="settingsBtn">Settings</button>
 
   <ul>
-    <li>W = vorwärts</li>
-    <li>S = rückwärts</li>
-    <li>A/D = strafen</li>
+    <li>W = Forward</li>
+    <li>S = Backward</li>
+    <li>A/D = Strafe</li>
     <li>Shift = Sprint</li>
     <li>Space = Jump</li>
+    <li>1 = Sword</li>
+    <li>Left Click = Attack</li>
     <li>P = Pause</li>
-    <li>Maus = Umschauen</li>
+    <li>Mouse = Look Around</li>
   </ul>
 
   <div id="settingsPanel">
     <label>FOV</label>
     <input id="fovSlider" type="range" min="50" max="120" value="75">
 
-    <label>Maus Sensitivity</label>
+    <label>Mouse Sensitivity</label>
     <input id="sensSlider" type="range" min="0.5" max="3" step="0.1" value="1">
 
-    <label>Head Bob Intensität</label>
+    <label>Head Bob Intensity</label>
     <input id="bobSlider" type="range" min="0" max="0.3" step="0.01" value="0.12">
   </div>
 </div>
@@ -242,9 +244,7 @@ scene.add(new THREE.Mesh(
     transparent:true,
     opacity:0.18
   })
-));
-
-/* -------------------- ROCK WALLS + COLLISION -------------------- */
+));/* -------------------- ROCK WALLS + COLLISION -------------------- */
 const wallBoxes = [];
 
 function createRockWall(width, height, depth, x, z, rotY=0) {
@@ -280,7 +280,6 @@ function createRockWall(width, height, depth, x, z, rotY=0) {
   wall.rotation.y = rotY;
   scene.add(wall);
 
-  // collision box
   const box = new THREE.Box3().setFromObject(wall);
   wallBoxes.push(box);
 }
@@ -313,7 +312,7 @@ const bobSpeed=10;
 let paused=false;
 let sensitivity=1;
 
-/* stamina (fast regen) */
+/* stamina */
 let stamina = 100;
 let maxStamina = 100;
 let staminaDrain = 20;
@@ -382,7 +381,7 @@ document.getElementById("bobSlider").oninput = e=>{
 function collidesWithWall(newPos) {
   const playerBox = new THREE.Box3().setFromCenterAndSize(
     new THREE.Vector3(newPos.x, newPos.y, newPos.z),
-    new THREE.Vector3(1, 2, 1) // small player hitbox
+    new THREE.Vector3(1, 2, 1)
   );
 
   for (const wallBox of wallBoxes) {
@@ -390,6 +389,96 @@ function collidesWithWall(newPos) {
   }
   return false;
 }
+
+/* -------------------- SWORD SYSTEM -------------------- */
+let swordEquipped = false;
+let swordSwinging = false;
+let swordCooldown = false;
+
+const swordGroup = new THREE.Group();
+camera.add(swordGroup);
+
+// FPS-style position
+swordGroup.position.set(0.6, -0.6, -1.2);
+swordGroup.rotation.set(0, 0.5, 0);
+
+// Silver sword model
+const bladeGeo = new THREE.BoxGeometry(0.1, 1.0, 0.15);
+const bladeMat = new THREE.MeshStandardMaterial({ color: 0xd9d9d9, metalness: 1, roughness: 0.15 });
+const blade = new THREE.Mesh(bladeGeo, bladeMat);
+blade.position.y = 0.5;
+
+const handleGeo = new THREE.BoxGeometry(0.15, 0.4, 0.15);
+const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+const handle = new THREE.Mesh(handleGeo, handleMat);
+handle.position.y = -0.3;
+
+swordGroup.add(blade);
+swordGroup.add(handle);
+
+swordGroup.visible = false;
+
+// Equip / de-equip
+document.addEventListener("keydown", e => {
+  if (e.key === "1") {
+    swordEquipped = !swordEquipped;
+    swordGroup.visible = swordEquipped;
+  }
+});
+
+// Attack
+document.addEventListener("mousedown", () => {
+  if (!swordEquipped || swordSwinging || swordCooldown) return;
+
+  swordSwinging = true;
+  swordCooldown = true;
+
+  let swingProgress = 0;
+
+  const swingInterval = setInterval(() => {
+    swingProgress += 0.05;
+
+    // Weighty swing arc
+    swordGroup.rotation.x = -swingProgress * 1.2;
+    swordGroup.rotation.y = 0.5 + swingProgress * 0.4;
+
+    // Melee hitbox (D3)
+    if (swingProgress > 0.3 && swingProgress < 0.35) {
+      const hitbox = new THREE.Sphere(
+        new THREE.Vector3(
+          player.position.x + Math.sin(player.rotation.y) * 1.5,
+          player.position.y + 1.2,
+          player.position.z + Math.cos(player.rotation.y) * 1.5
+        ),
+        1.0
+      );
+
+      console.log("HITBOX ACTIVE");
+    }
+
+    if (swingProgress >= 1) {
+      clearInterval(swingInterval);
+
+      // Return to idle
+      let returnProgress = 0;
+      const returnInterval = setInterval(() => {
+        returnProgress += 0.05;
+        swordGroup.rotation.x = -1.2 + returnProgress * 1.2;
+        swordGroup.rotation.y = 0.9 - returnProgress * 0.4;
+
+        if (returnProgress >= 1) {
+          clearInterval(returnInterval);
+          swordSwinging = false;
+
+          // Cooldown
+          setTimeout(() => {
+            swordCooldown = false;
+          }, 200);
+        }
+      }, 16);
+    }
+  }, 16);
+});
 
 /* -------------------- UPDATE MOVEMENT -------------------- */
 function updateMovement(delta){
@@ -448,11 +537,22 @@ function updateMovement(delta){
     velocityY = 0;
   }
 
+  // Head bob + sword bob
   if(moving && onGround){
     bobTime += delta*bobSpeed*(keys["shift"]?2:1);
-    camera.position.y = eyeHeight + Math.sin(bobTime)*bobAmount;
+    const bobOffset = Math.sin(bobTime)*bobAmount;
+
+    camera.position.y = eyeHeight + bobOffset;
+
+    if (swordEquipped && !swordSwinging) {
+      swordGroup.position.y = -0.6 + bobOffset * 0.5;
+    }
   } else {
     camera.position.y += (eyeHeight-camera.position.y)*0.1;
+
+    if (swordEquipped && !swordSwinging) {
+      swordGroup.position.y += (-0.6 - swordGroup.position.y)*0.1;
+    }
   }
 
   const bar = document.getElementById("staminaBar");
