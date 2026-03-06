@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>FPS Terrain</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 22px;
+      color: white;
+      text-shadow: 0 0 4px black;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #pauseMenu {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      color: white;
+      font-family: sans-serif;
+      z-index: 10;
+    }
+
+    #pauseMenu button {
+      padding: 10px 20px;
+      font-size: 20px;
+      margin: 10px;
+      cursor: pointer;
+    }
+
+    #pauseMenu ul {
+      list-style: none;
+      padding: 0;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    #settingsPanel {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      display: none;
+    }
+
+    #settingsPanel label {
+      display: block;
+      margin: 8px 0 4px;
+    }
+
+    #settingsPanel input {
+      width: 200px;
+    }
+
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.5);
+      color: white;
+      border-radius: 4px;
+      font-family: sans-serif;
+    }
+
+    /* Stamina bar (transparent) */
+    #staminaBarContainer {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 250px;
+      height: 18px;
+      background: rgba(0,0,0,0.5);
+      border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 6px;
+      z-index: 5;
+      opacity: 0.5;
+    }
+
+    #staminaBar {
+      width: 100%;
+      height: 100%;
+      background: limegreen;
+      border-radius: 4px;
+      transition: width 0.15s linear;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+
+<div id="info">P = Pause</div>
+<div id="crosshair">+</div>
+
+<div id="staminaBarContainer">
+  <div id="staminaBar"></div>
+</div>
+
+<div id="pauseMenu">
+  <button id="continueBtn">Continue</button>
+  <button id="settingsBtn">Settings</button>
+
+  <ul>
+    <li>W = vorwärts</li>
+    <li>S = rückwärts</li>
+    <li>A/D = strafen</li>
+    <li>Shift = Sprint</li>
+    <li>Space = Jump</li>
+    <li>P = Pause</li>
+    <li>Maus = Umschauen</li>
+  </ul>
+
+  <div id="settingsPanel">
+    <label>FOV</label>
+    <input id="fovSlider" type="range" min="50" max="120" value="75">
+
+    <label>Maus Sensitivity</label>
+    <input id="sensSlider" type="range" min="0.5" max="3" step="0.1" value="1">
+
+    <label>Head Bob Intensität</label>
+    <input id="bobSlider" type="range" min="0" max="0.3" step="0.01" value="0.12">
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+/* -------------------- PERLIN -------------------- */
+class Perlin {
+  constructor() {
+    this.p = new Uint8Array(512);
+    for (let i = 0; i < 256; i++) this.p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.p[i], this.p[j]] = [this.p[j], this.p[i]];
+    }
+    for (let i = 0; i < 256; i++) this.p[256 + i] = this.p[i];
+  }
+  fade(t){ return t*t*t*(t*(t*6-15)+10); }
+  lerp(t,a,b){ return a+t*(b-a); }
+  grad(h,x,y){
+    const g = h & 3;
+    const u = g < 2 ? x : y;
+    const v = g < 2 ? y : x;
+    return ((g&1)?-u:u) + ((g&2)?-v:v);
+  }
+  noise(x,y){
+    const X = Math.floor(x)&255;
+    const Y = Math.floor(y)&255;
+    x -= Math.floor(x);
+    y -= Math.floor(y);
+    const u = this.fade(x);
+    const v = this.fade(y);
+    const A = this.p[X]+Y;
+    const B = this.p[X+1]+Y;
+    return this.lerp(
+      v,
+      this.lerp(u,this.grad(this.p[A],x,y),this.grad(this.p[B],x-1,y)),
+      this.lerp(u,this.grad(this.p[A+1],x,y-1),this.grad(this.p[B+1],x-1,y-1))
+    );
+  }
+}
+const perlin = new Perlin();
+
+function terrainHeight(x,z){
+  const nx = (x+500)/1000;
+  const nz = (z+500)/1000;
+  return perlin.noise(nx*3,nz*3)*15;
+}
+
+/* -------------------- SCENE -------------------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x66aaff);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* -------------------- PLAYER -------------------- */
+const player = new THREE.Object3D();
+scene.add(player);
+
+const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,2000);
+const eyeHeight = 1.7;
+camera.position.set(0,eyeHeight,0);
+player.add(camera);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x888888,1));
+
+/* -------------------- TERRAIN -------------------- */
+const size = 1000;
+const segments = 200;
+
+const terrainGeo = new THREE.PlaneGeometry(size,size,segments,segments);
+terrainGeo.rotateX(-Math.PI/2);
+
+const pos = terrainGeo.attributes.position;
+for(let i=0;i<pos.count;i++){
+  const x = pos.getX(i);
+  const z = pos.getZ(i);
+  pos.setY(i,terrainHeight(x,z));
+}
+pos.needsUpdate = true;
+terrainGeo.computeVertexNormals();
+
+const terrain = new THREE.Mesh(
+  terrainGeo,
+  new THREE.MeshStandardMaterial({color:0x225522})
+);
+scene.add(terrain);
+
+/* -------------------- GRID LINES -------------------- */
+const lineGeo = new THREE.PlaneGeometry(size,size,segments,segments);
+lineGeo.rotateX(-Math.PI/2);
+
+const linePos = lineGeo.attributes.position;
+for(let i=0;i<linePos.count;i++){
+  const x = linePos.getX(i);
+  const z = linePos.getZ(i);
+  linePos.setY(i,terrainHeight(x,z)+0.02);
+}
+linePos.needsUpdate = true;
+
+scene.add(new THREE.Mesh(
+  lineGeo,
+  new THREE.MeshBasicMaterial({
+    color:0x88aa88,
+    wireframe:true,
+    transparent:true,
+    opacity:0.18
+  })
+));
+
+/* -------------------- ROCK WALLS + COLLISION -------------------- */
+const wallBoxes = [];
+
+function createRockWall(width, height, depth, x, z, rotY=0) {
+  const geo = new THREE.BoxGeometry(width, height, depth, 40, 40, 4);
+  const p = geo.attributes.position;
+
+  for (let i = 0; i < p.count; i++) {
+    const vx = p.getX(i);
+    const vy = p.getY(i);
+    const vz = p.getZ(i);
+
+    const n = perlin.noise(vx * 0.05, vz * 0.05);
+    const d = n * 4;
+
+    p.setX(i, vx + d);
+    p.setY(i, vy + d * 0.5);
+    p.setZ(i, vz + d);
+  }
+
+  p.needsUpdate = true;
+  geo.computeVertexNormals();
+
+  const wall = new THREE.Mesh(
+    geo,
+    new THREE.MeshStandardMaterial({
+      color:0x666666,
+      roughness:0.95,
+      metalness:0.05
+    })
+  );
+
+  wall.position.set(x, height/2 - 200, z);
+  wall.rotation.y = rotY;
+  scene.add(wall);
+
+  // collision box
+  const box = new THREE.Box3().setFromObject(wall);
+  wallBoxes.push(box);
+}
+
+createRockWall(1000, 300, 40, 0, -510);
+createRockWall(1000, 300, 40, 0,  510);
+createRockWall(40,  300, 1000, -510, 0);
+createRockWall(40,  300, 1000,  510, 0);
+
+/* -------------------- MOVEMENT & STAMINA -------------------- */
+let yaw=0, pitch=0;
+const keys={};
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+const direction=new THREE.Vector3();
+const forward=new THREE.Vector3();
+const right=new THREE.Vector3();
+
+let baseSpeed=10;
+let sprintMultiplier=2;
+let velocityY=0;
+const gravity=-25;
+const jumpForce=12;
+
+let bobTime=0;
+let bobAmount=0.12;
+const bobSpeed=10;
+
+let paused=false;
+let sensitivity=1;
+
+/* stamina (fast regen) */
+let stamina = 100;
+let maxStamina = 100;
+let staminaDrain = 20;
+let staminaRegen = 40;
+
+/* -------------------- POINTER LOCK -------------------- */
+document.body.addEventListener("click",()=>{
+  if(!paused) document.body.requestPointerLock();
+});
+
+document.addEventListener("mousemove",e=>{
+  if(paused) return;
+  if(document.pointerLockElement===document.body){
+    yaw -= e.movementX*0.002 * sensitivity;
+    pitch -= e.movementY*0.002 * sensitivity;
+    pitch = Math.max(-Math.PI/2,Math.min(Math.PI/2,pitch));
+    player.rotation.y=yaw;
+    camera.rotation.x=pitch;
+  }
+});
+
+/* -------------------- PAUSE MENU -------------------- */
+const pauseMenu = document.getElementById("pauseMenu");
+const continueBtn = document.getElementById("continueBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+
+function setPaused(state){
+  paused = state;
+  pauseMenu.style.display = paused ? "flex" : "none";
+
+  if(paused){
+    document.exitPointerLock();
+  } else {
+    document.body.requestPointerLock();
+  }
+}
+
+document.addEventListener("keydown",e=>{
+  if(e.key.toLowerCase()==="p"){
+    if(!paused) setPaused(true);
+  }
+});
+
+continueBtn.onclick = ()=> setPaused(false);
+settingsBtn.onclick = ()=> {
+  settingsPanel.style.display =
+    settingsPanel.style.display === "none" ? "block" : "none";
+};
+
+/* -------------------- SETTINGS -------------------- */
+document.getElementById("fovSlider").oninput = e=>{
+  camera.fov = e.target.value;
+  camera.updateProjectionMatrix();
+};
+
+document.getElementById("sensSlider").oninput = e=>{
+  sensitivity = parseFloat(e.target.value);
+};
+
+document.getElementById("bobSlider").oninput = e=>{
+  bobAmount = parseFloat(e.target.value);
+};
+
+/* -------------------- COLLISION CHECK -------------------- */
+function collidesWithWall(newPos) {
+  const playerBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(newPos.x, newPos.y, newPos.z),
+    new THREE.Vector3(1, 2, 1) // small player hitbox
+  );
+
+  for (const wallBox of wallBoxes) {
+    if (playerBox.intersectsBox(wallBox)) return true;
+  }
+  return false;
+}
+
+/* -------------------- UPDATE MOVEMENT -------------------- */
+function updateMovement(delta){
+  if(paused) return;
+
+  direction.set(0,0,0);
+
+  forward.set(Math.sin(player.rotation.y),0,Math.cos(player.rotation.y)).normalize();
+  right.set(Math.cos(player.rotation.y),0,-Math.sin(player.rotation.y)).normalize();
+
+  if(keys["w"]) direction.sub(forward);
+  if(keys["s"]) direction.add(forward);
+
+  if(keys["a"]) direction.sub(right);
+  if(keys["d"]) direction.add(right);
+
+  let speed = baseSpeed;
+
+  if (keys["shift"] && stamina > 0) {
+    speed *= sprintMultiplier;
+    stamina -= staminaDrain * delta;
+    if (stamina < 0) stamina = 0;
+  } else {
+    stamina += staminaRegen * delta;
+    if (stamina > maxStamina) stamina = maxStamina;
+  }
+
+  if (stamina <= 0) speed = baseSpeed;
+
+  const moving = direction.length()>0;
+
+  if(moving){
+    direction.normalize();
+
+    const newPos = player.position.clone().addScaledVector(direction, speed * delta);
+
+    if (!collidesWithWall(newPos)) {
+      player.position.copy(newPos);
+    }
+  }
+
+  const groundY = terrainHeight(player.position.x,player.position.z);
+  const onGround = player.position.y <= groundY+0.01;
+
+  if(onGround){
+    player.position.y = groundY;
+    velocityY = 0;
+    if(keys[" "]) velocityY = jumpForce;
+  }
+
+  velocityY += gravity * delta;
+  player.position.y += velocityY * delta;
+
+  if(player.position.y < groundY){
+    player.position.y = groundY;
+    velocityY = 0;
+  }
+
+  if(moving && onGround){
+    bobTime += delta*bobSpeed*(keys["shift"]?2:1);
+    camera.position.y = eyeHeight + Math.sin(bobTime)*bobAmount;
+  } else {
+    camera.position.y += (eyeHeight-camera.position.y)*0.1;
+  }
+
+  const bar = document.getElementById("staminaBar");
+  bar.style.width = (stamina / maxStamina * 100) + "%";
+  if (stamina > 60) bar.style.background = "limegreen";
+  else if (stamina > 30) bar.style.background = "yellow";
+  else bar.style.background = "red";
+}
+
+/* -------------------- LOOP -------------------- */
+let last=performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const delta=(now-last)/1000;
+  last=now;
+  updateMovement(delta);
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize",()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
