@@ -1,584 +1,613 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>FPS Terrain</title>
+  <meta charset="utf-8" />
+  <title>FPS Terrain — Pause Menu Improvements</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
+    html,body { height:100%; margin:0; background:#071226; overflow:hidden; }
+    canvas { display:block; }
 
     #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 22px;
-      color: white;
-      text-shadow: 0 0 4px black;
-      pointer-events: none;
-      z-index: 5;
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      color:#fff; font-size:24px; pointer-events:none; z-index:60;
+      text-shadow:0 0 6px rgba(0,0,0,0.8);
     }
 
-    #pauseMenu {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      color: white;
-      font-family: sans-serif;
-      z-index: 10;
+    #ui {
+      position:absolute; left:12px; top:12px; z-index:60;
+      color:#fff; font-family:Arial,Helvetica,sans-serif;
+      background:rgba(0,0,0,0.35); padding:8px 10px; border-radius:6px;
     }
 
-    #pauseMenu button {
-      padding: 10px 20px;
-      font-size: 20px;
-      margin: 10px;
-      cursor: pointer;
+    #staminaContainer {
+      position:absolute; left:12px; bottom:18px; z-index:70;
+      width:300px; height:28px;
+      background:rgba(0,0,0,0.75);
+      border:2px solid rgba(255,255,255,0.12);
+      border-radius:8px;
+      padding:4px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.6);
     }
-
-    #pauseMenu ul {
-      list-style: none;
-      padding: 0;
-      font-size: 18px;
-      text-align: center;
-    }
-
-    #settingsPanel {
-      margin-top: 20px;
-      padding: 15px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 10px;
-      display: none;
-    }
-
-    #settingsPanel label {
-      display: block;
-      margin: 8px 0 4px;
-    }
-
-    #settingsPanel input {
-      width: 200px;
-    }
-
-    #info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 8px 12px;
-      background: rgba(0,0,0,0.5);
-      color: white;
-      border-radius: 4px;
-      font-family: sans-serif;
-    }
-
-    /* Stamina bar */
-    #staminaBarContainer {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 250px;
-      height: 18px;
-      background: rgba(0,0,0,0.5);
-      border: 2px solid rgba(255,255,255,0.5);
-      border-radius: 6px;
-      z-index: 5;
-      opacity: 0.5;
-    }
-
     #staminaBar {
-      width: 100%;
-      height: 100%;
-      background: limegreen;
-      border-radius: 4px;
-      transition: width 0.15s linear;
-      opacity: 0.5;
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#6ee7b7,#3b82f6);
+      border-radius:6px;
+      transition:width .12s linear;
+      box-shadow: inset 0 -4px 8px rgba(0,0,0,0.25);
+    }
+
+    #pause {
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.6); z-index:80; color:#fff; font-family:Arial,Helvetica,sans-serif;
+    }
+    #pause .panel { background:rgba(10,10,20,0.95); padding:18px; border-radius:8px; text-align:center; max-width:520px; }
+    #pause button { margin:8px; padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
+
+    .settings-row { display:flex; align-items:center; gap:12px; justify-content:space-between; margin:8px 0; }
+    .settings-row label { flex:1; text-align:left; font-size:14px; }
+    .settings-row input[type="range"] { flex:1.6; }
+
+    .controls-row { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; align-items:center; }
+    .controls-row button { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
+
+    @media (max-width:600px){
+      #ui { font-size:13px; }
+      #crosshair { font-size:20px; }
+      #staminaContainer { width:220px; height:24px; }
+      .settings-row { flex-direction:column; align-items:flex-start; }
+      .settings-row input[type="range"] { width:100%; }
+      .controls-row { justify-content:space-between; }
     }
   </style>
 </head>
 <body>
+  <div id="ui">Press P or Esc to open Pause Menu</div>
+  <div id="crosshair">+</div>
 
-<div id="info">P = Pause | 1 = Sword | Left Click = Attack</div>
-<div id="crosshair">+</div>
+  <div id="staminaContainer"><div id="staminaBar"></div></div>
 
-<div id="staminaBarContainer">
-  <div id="staminaBar"></div>
-</div>
+  <div id="pause">
+    <div class="panel">
+      <h2>Paused</h2>
+      <div style="margin:8px 0">Press P or Esc to resume/close</div>
+      <button id="resumeBtn">Resume</button>
 
-<div id="pauseMenu">
-  <button id="continueBtn">Continue</button>
-  <button id="settingsBtn">Settings</button>
+      <div style="text-align:left; margin-top:12px;">
+        <strong>Keybinds</strong>
+        <ul style="text-align:left; margin:8px 0 0 18px; padding:0; line-height:1.6;">
+          <li>W = forward</li>
+          <li>S = backward</li>
+          <li>A / D = strafe</li>
+          <li>Shift = sprint (disabled when stamina is 0)</li>
+          <li>Space = jump (allowed while sprinting)</li>
+          <li>P = pause (toggle)</li>
+          <li>Esc = open pause menu</li>
+          <li>Mouse = look around</li>
+        </ul>
+      </div>
 
-  <ul>
-    <li>W = Forward</li>
-    <li>S = Backward</li>
-    <li>A/D = Strafe</li>
-    <li>Shift = Sprint</li>
-    <li>Space = Jump</li>
-    <li>1 = Sword</li>
-    <li>Left Click = Attack</li>
-    <li>P = Pause</li>
-    <li>Mouse = Look Around</li>
-  </ul>
+      <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.06)">
 
-  <div id="settingsPanel">
-    <label>FOV</label>
-    <input id="fovSlider" type="range" min="50" max="120" value="75">
+      <div style="text-align:left;">
+        <strong>Settings</strong>
 
-    <label>Mouse Sensitivity</label>
-    <input id="sensSlider" type="range" min="0.5" max="3" step="0.1" value="1">
+        <div class="settings-row">
+          <label for="fovSlider">FOV</label>
+          <input id="fovSlider" type="range" min="50" max="120" value="75">
+          <span id="fovVal" style="width:44px; text-align:right;">75</span>
+        </div>
 
-    <label>Head Bob Intensity</label>
-    <input id="bobSlider" type="range" min="0" max="0.3" step="0.01" value="0.12">
+        <div class="settings-row">
+          <label for="sensSlider">Mouse Sensitivity</label>
+          <input id="sensSlider" type="range" min="0.3" max="3" step="0.05" value="1">
+          <span id="sensVal" style="width:44px; text-align:right;">1.00</span>
+        </div>
+
+        <div class="settings-row">
+          <label for="bobSlider">Head Bob Intensity</label>
+          <input id="bobSlider" type="range" min="0" max="0.6" step="0.01" value="0.22">
+          <span id="bobVal" style="width:44px; text-align:right;">0.22</span>
+        </div>
+
+        <div class="settings-row">
+          <label for="fogSlider">Fog Amount (0–1)</label>
+          <input id="fogSlider" type="range" min="0" max="1" step="0.01" value="0.60">
+          <span id="fogVal" style="width:44px; text-align:right;">0.60</span>
+        </div>
+
+        <div class="controls-row">
+          <button id="resetBtn">Set to Standard</button>
+          <button id="applyBtn">Apply</button>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
 <script type="module">
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
-/* -------------------- PERLIN -------------------- */
+/* -------------------- Helpers -------------------- */
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+/* -------------------- Perlin Noise -------------------- */
 class Perlin {
-  constructor() {
+  constructor(){
     this.p = new Uint8Array(512);
-    for (let i = 0; i < 256; i++) this.p[i] = i;
-    for (let i = 255; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [this.p[i], this.p[j]] = [this.p[j], this.p[i]];
-    }
-    for (let i = 0; i < 256; i++) this.p[256 + i] = this.p[i];
+    for(let i=0;i<256;i++) this.p[i]=i;
+    for(let i=255;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [this.p[i],this.p[j]]=[this.p[j],this.p[i]]; }
+    for(let i=0;i<256;i++) this.p[256+i]=this.p[i];
   }
   fade(t){ return t*t*t*(t*(t*6-15)+10); }
-  lerp(t,a,b){ return a+t*(b-a); }
-  grad(h,x,y){
-    const g = h & 3;
-    const u = g < 2 ? x : y;
-    const v = g < 2 ? y : x;
-    return ((g&1)?-u:u) + ((g&2)?-v:v);
-  }
+  lerp(t,a,b){ return a + t*(b-a); }
+  grad(hash,x,y){ const h=hash&3; const u=h<2?x:y; const v=h<2?y:x; return ((h&1)?-u:u)+((h&2)?-v:v); }
   noise(x,y){
-    const X = Math.floor(x)&255;
-    const Y = Math.floor(y)&255;
-    x -= Math.floor(x);
-    y -= Math.floor(y);
-    const u = this.fade(x);
-    const v = this.fade(y);
-    const A = this.p[X]+Y;
-    const B = this.p[X+1]+Y;
-    return this.lerp(
-      v,
-      this.lerp(u,this.grad(this.p[A],x,y),this.grad(this.p[B],x-1,y)),
-      this.lerp(u,this.grad(this.p[A+1],x,y-1),this.grad(this.p[B+1],x-1,y-1))
-    );
+    const X=Math.floor(x)&255, Y=Math.floor(y)&255;
+    x-=Math.floor(x); y-=Math.floor(y);
+    const u=this.fade(x), v=this.fade(y);
+    const A=this.p[X]+Y, B=this.p[X+1]+Y;
+    return this.lerp(v, this.lerp(u,this.grad(this.p[A],x,y), this.grad(this.p[B],x-1,y)), this.lerp(u,this.grad(this.p[A+1],x,y-1), this.grad(this.p[B+1],x-1,y-1)));
   }
 }
 const perlin = new Perlin();
-
 function terrainHeight(x,z){
-  const nx = (x+500)/1000;
-  const nz = (z+500)/1000;
-  return perlin.noise(nx*3,nz*3)*15;
+  const nx=(x+500)/1000, nz=(z+500)/1000;
+  return perlin.noise(nx*3, nz*3) * 18;
 }
 
-/* -------------------- SCENE -------------------- */
+/* -------------------- Scene, Renderer, Camera -------------------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x66aaff);
+scene.background = new THREE.Color(0x0b1a2b);
+
+/* Fog mapping */
+const minDensity = 0.0005;
+const maxDensity = 0.02;
+const defaultFogSlider = 0.60;
+scene.fog = new THREE.FogExp2(0x0b1a2b, lerp(minDensity, maxDensity, defaultFogSlider));
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-/* -------------------- PLAYER -------------------- */
 const player = new THREE.Object3D();
 scene.add(player);
 
-const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,2000);
-const eyeHeight = 1.7;
-camera.position.set(0,eyeHeight,0);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
+camera.position.set(0,1.7,0);
 player.add(camera);
 
-scene.add(new THREE.HemisphereLight(0xffffff,0x888888,1));
+/* -------------------- Lights -------------------- */
+const hemi = new THREE.HemisphereLight(0x99bbff, 0x222233, 0.6);
+scene.add(hemi);
 
-/* -------------------- TERRAIN -------------------- */
-const size = 1000;
-const segments = 200;
+const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+dir.position.set(80,160,40);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024,1024);
+scene.add(dir);
 
-const terrainGeo = new THREE.PlaneGeometry(size,size,segments,segments);
+const fill = new THREE.AmbientLight(0x223344, 0.25);
+scene.add(fill);
+
+/* -------------------- Terrain -------------------- */
+const SIZE = 1000, SEG = 200;
+const terrainGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
 terrainGeo.rotateX(-Math.PI/2);
-
 const pos = terrainGeo.attributes.position;
 for(let i=0;i<pos.count;i++){
-  const x = pos.getX(i);
-  const z = pos.getZ(i);
-  pos.setY(i,terrainHeight(x,z));
+  const x = pos.getX(i), z = pos.getZ(i);
+  pos.setY(i, terrainHeight(x,z));
 }
 pos.needsUpdate = true;
 terrainGeo.computeVertexNormals();
 
-const terrain = new THREE.Mesh(
-  terrainGeo,
-  new THREE.MeshStandardMaterial({color:0x225522})
-);
+const terrainMat = new THREE.MeshStandardMaterial({ color: 0x2a5a2a, roughness:0.9 });
+const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+terrain.receiveShadow = true;
 scene.add(terrain);
 
-/* -------------------- GRID LINES -------------------- */
-const lineGeo = new THREE.PlaneGeometry(size,size,segments,segments);
-lineGeo.rotateX(-Math.PI/2);
-
-const linePos = lineGeo.attributes.position;
-for(let i=0;i<linePos.count;i++){
-  const x = linePos.getX(i);
-  const z = linePos.getZ(i);
-  linePos.setY(i,terrainHeight(x,z)+0.02);
+/* -------------------- Grid overlay -------------------- */
+const gridGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+gridGeo.rotateX(-Math.PI/2);
+const gridPos = gridGeo.attributes.position;
+for(let i=0;i<gridPos.count;i++){
+  const x = gridPos.getX(i), z = gridPos.getZ(i);
+  gridPos.setY(i, terrainHeight(x,z) + 0.02);
 }
-linePos.needsUpdate = true;
+gridPos.needsUpdate = true;
+const grid = new THREE.Mesh(gridGeo, new THREE.MeshBasicMaterial({ color:0x88aa88, wireframe:true, transparent:true, opacity:0.12 }));
+scene.add(grid);
 
-scene.add(new THREE.Mesh(
-  lineGeo,
-  new THREE.MeshBasicMaterial({
-    color:0x88aa88,
-    wireframe:true,
-    transparent:true,
-    opacity:0.18
-  })
-));/* -------------------- ROCK WALLS + COLLISION -------------------- */
+/* -------------------- Outer walls (collision) -------------------- */
 const wallBoxes = [];
-
-function createRockWall(width, height, depth, x, z, rotY=0) {
-  const geo = new THREE.BoxGeometry(width, height, depth, 40, 40, 4);
-  const p = geo.attributes.position;
-
-  for (let i = 0; i < p.count; i++) {
-    const vx = p.getX(i);
-    const vy = p.getY(i);
-    const vz = p.getZ(i);
-
-    const n = perlin.noise(vx * 0.05, vz * 0.05);
-    const d = n * 4;
-
-    p.setX(i, vx + d);
-    p.setY(i, vy + d * 0.5);
-    p.setZ(i, vz + d);
+function addWall(w,h,d,x,z,rot=0){
+  const g = new THREE.BoxGeometry(w,h,d,8,8,2);
+  const p = g.attributes.position;
+  for(let i=0;i<p.count;i++){
+    p.setX(i, p.getX(i) + (Math.random()-0.5)*2);
+    p.setY(i, p.getY(i) + (Math.random()-0.5)*1.5);
+    p.setZ(i, p.getZ(i) + (Math.random()-0.5)*2);
   }
-
   p.needsUpdate = true;
-  geo.computeVertexNormals();
+  g.computeVertexNormals();
+  const m = new THREE.MeshStandardMaterial({ color:0x666666, roughness:0.95 });
+  const mesh = new THREE.Mesh(g,m);
+  mesh.position.set(x, h/2 - 200, z);
+  mesh.rotation.y = rot;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  wallBoxes.push(new THREE.Box3().setFromObject(mesh));
+}
+addWall(1000,300,40,0,-510);
+addWall(1000,300,40,0,510);
+addWall(40,300,1000,-510,0);
+addWall(40,300,1000,510,0);
 
-  const wall = new THREE.Mesh(
-    geo,
-    new THREE.MeshStandardMaterial({
-      color:0x666666,
-      roughness:0.95,
-      metalness:0.05
-    })
-  );
+/* -------------------- Trees (reverted look, 4x bigger, no hitbox) -------------------- */
+const cherryGroup = [];
 
-  wall.position.set(x, height/2 - 200, z);
-  wall.rotation.y = rotY;
-  scene.add(wall);
+function createCherryTree(x, z, scale = 1.0) {
+  const group = new THREE.Group();
 
-  const box = new THREE.Box3().setFromObject(wall);
-  wallBoxes.push(box);
+  // trunk
+  const trunkGeo = new THREE.CylinderGeometry(0.12 * scale, 0.18 * scale, 1.0 * scale, 8);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b3a1a, roughness: 0.8 });
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.castShadow = true;
+  trunk.receiveShadow = true;
+  trunk.position.y = 0.5 * scale;
+  group.add(trunk);
+
+  // canopy base color (soft pink)
+  const canopyMat = new THREE.MeshStandardMaterial({
+    color: 0xffc0d9,
+    roughness: 0.6,
+    metalness: 0.0
+  });
+
+  // original offsets
+  const canopyPositions = [
+    [0, 1.05 * scale, 0],
+    [-0.35 * scale, 0.95 * scale, -0.15 * scale],
+    [0.35 * scale, 0.95 * scale, -0.15 * scale],
+    [-0.15 * scale, 0.9 * scale, 0.35 * scale],
+    [0.15 * scale, 0.9 * scale, 0.35 * scale],
+    [0, 1.25 * scale, 0.15 * scale]
+  ];
+
+  const canopySpheres = [];
+  for (let i = 0; i < canopyPositions.length; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.45 * scale, 12, 10), canopyMat);
+    s.position.set(canopyPositions[i][0], canopyPositions[i][1], canopyPositions[i][2]);
+    s.castShadow = true;
+    s.receiveShadow = true;
+    group.add(s);
+    canopySpheres.push(s);
+  }
+
+  // accents
+  const accentMat = new THREE.MeshStandardMaterial({ color: 0xff9fcf, roughness: 0.6 });
+  for (let i = 0; i < 6; i++) {
+    const a = new THREE.Mesh(new THREE.SphereGeometry(0.12 * scale, 8, 6), accentMat);
+    const angle = Math.random() * Math.PI * 2;
+    const r = 0.25 * scale + Math.random() * 0.15 * scale;
+    a.position.set(Math.cos(angle) * r, 1.05 * scale + (Math.random() - 0.5) * 0.12 * scale, Math.sin(angle) * r);
+    a.castShadow = true;
+    group.add(a);
+  }
+
+  // petals
+  const petalMat = new THREE.MeshStandardMaterial({ color: 0xffe6f2, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+  for (let i = 0; i < 10; i++) {
+    const pGeo = new THREE.PlaneGeometry(0.08 * scale, 0.06 * scale);
+    const p = new THREE.Mesh(pGeo, petalMat);
+    const angle = Math.random() * Math.PI * 2;
+    const r = 0.4 * scale + Math.random() * 0.2 * scale;
+    p.position.set(Math.cos(angle) * r, 1.0 * scale + (Math.random() - 0.5) * 0.2 * scale, Math.sin(angle) * r);
+    p.rotation.y = Math.random() * Math.PI;
+    p.rotation.x = (Math.random() - 0.5) * 0.6;
+    p.castShadow = false;
+    group.add(p);
+  }
+
+  const y = terrainHeight(x, z);
+  group.position.set(x, y, z);
+  group.scale.set(scale, scale, scale);
+
+  const sway = {
+    group,
+    canopySpheres,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.6 + Math.random() * 0.6,
+    amplitude: 0.02 + Math.random() * 0.03
+  };
+
+  scene.add(group);
+  cherryGroup.push(sway);
+  return group;
 }
 
-createRockWall(1000, 300, 40, 0, -510);
-createRockWall(1000, 300, 40, 0,  510);
-createRockWall(40,  300, 1000, -510, 0);
-createRockWall(40,  300, 1000,  510, 0);
+/* Place six trees scaled by 4 */
+const treePositions = [
+  {x:  -120, z:  80, s: 1.1},
+  {x:   200, z: -60, s: 1.0},
+  {x:   -60, z: -180, s: 0.95},
+  {x:   260, z: 160, s: 1.2},
+  {x:   -240, z: 220, s: 1.0},
+  {x:    80, z:  240, s: 1.05}
+];
 
-/* -------------------- MOVEMENT & STAMINA -------------------- */
+for (const tp of treePositions) {
+  let x = tp.x, z = tp.z;
+  let attempts = 0;
+  while (attempts < 20) {
+    const y = terrainHeight(x, z);
+    const testBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, y + 0.8 * tp.s * 4, z), new THREE.Vector3(1.2 * tp.s * 4, 2.2 * tp.s * 4, 1.2 * tp.s * 4));
+    let coll = false;
+    for (const wb of wallBoxes) {
+      if (testBox.intersectsBox(wb)) { coll = true; break; }
+    }
+    if (!coll) break;
+    x += (Math.random() - 0.5) * 40;
+    z += (Math.random() - 0.5) * 40;
+    attempts++;
+  }
+  createCherryTree(x, z, tp.s * 4);
+}
+
+/* -------------------- Controls, movement, exhaustion rules -------------------- */
 let yaw=0, pitch=0;
-const keys={};
-document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
-document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+const keys = {};
+addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-const direction=new THREE.Vector3();
-const forward=new THREE.Vector3();
-const right=new THREE.Vector3();
+let velocityY = 0;
+const gravity = -25;
+const jumpForce = 12;
+let baseSpeed = 10, sprintMult = 2;
+let stamina = 100, maxStamina = 100, drain = 20, regen = 40;
+const staminaBar = document.getElementById('staminaBar');
 
-let baseSpeed=10;
-let sprintMultiplier=2;
-let velocityY=0;
-const gravity=-25;
-const jumpForce=12;
+let bobTime = 0, bobAmt = 0.22, bobSpeed = 10;
+let paused = false;
+let sensitivity = 1.0;
 
-let bobTime=0;
-let bobAmount=0.12;
-const bobSpeed=10;
+/* Exhaustion behavior */
+let exhausted = false;
+const exhaustSpeedFactor = 0.45; // faster exhausted speed per user request
 
-let paused=false;
-let sensitivity=1;
-
-/* stamina */
-let stamina = 100;
-let maxStamina = 100;
-let staminaDrain = 20;
-let staminaRegen = 40;
-
-/* -------------------- POINTER LOCK -------------------- */
-document.body.addEventListener("click",()=>{
-  if(!paused) document.body.requestPointerLock();
-});
-
-document.addEventListener("mousemove",e=>{
-  if(paused) return;
-  if(document.pointerLockElement===document.body){
-    yaw -= e.movementX*0.002 * sensitivity;
-    pitch -= e.movementY*0.002 * sensitivity;
-    pitch = Math.max(-Math.PI/2,Math.min(Math.PI/2,pitch));
-    player.rotation.y=yaw;
-    camera.rotation.x=pitch;
+document.body.addEventListener('click', ()=> { if(!paused) document.body.requestPointerLock(); });
+addEventListener('mousemove', e => {
+  if(document.pointerLockElement === document.body && !paused){
+    yaw -= e.movementX * 0.002 * sensitivity;
+    pitch -= e.movementY * 0.002 * sensitivity;
+    pitch = clamp(pitch, -Math.PI/2, Math.PI/2);
+    player.rotation.y = yaw;
+    camera.rotation.x = pitch;
   }
 });
 
-/* -------------------- PAUSE MENU -------------------- */
-const pauseMenu = document.getElementById("pauseMenu");
-const continueBtn = document.getElementById("continueBtn");
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsPanel = document.getElementById("settingsPanel");
-
-function setPaused(state){
-  paused = state;
-  pauseMenu.style.display = paused ? "flex" : "none";
-
-  if(paused){
-    document.exitPointerLock();
-  } else {
-    document.body.requestPointerLock();
-  }
-}
-
-document.addEventListener("keydown",e=>{
-  if(e.key.toLowerCase()==="p"){
-    if(!paused) setPaused(true);
-  }
-});
-
-continueBtn.onclick = ()=> setPaused(false);
-settingsBtn.onclick = ()=> {
-  settingsPanel.style.display =
-    settingsPanel.style.display === "none" ? "block" : "none";
-};
-
-/* -------------------- SETTINGS -------------------- */
-document.getElementById("fovSlider").oninput = e=>{
-  camera.fov = e.target.value;
-  camera.updateProjectionMatrix();
-};
-
-document.getElementById("sensSlider").oninput = e=>{
-  sensitivity = parseFloat(e.target.value);
-};
-
-document.getElementById("bobSlider").oninput = e=>{
-  bobAmount = parseFloat(e.target.value);
-};
-
-/* -------------------- COLLISION CHECK -------------------- */
-function collidesWithWall(newPos) {
-  const playerBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(newPos.x, newPos.y, newPos.z),
-    new THREE.Vector3(1, 2, 1)
-  );
-
-  for (const wallBox of wallBoxes) {
-    if (playerBox.intersectsBox(wallBox)) return true;
-  }
+/* collidesWithWall checks only walls (trees have no hitbox now) */
+function collidesWithWall(newPos){
+  const box = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(newPos.x, newPos.y, newPos.z), new THREE.Vector3(1,2,1));
+  for(const wb of wallBoxes) if(box.intersectsBox(wb)) return true;
   return false;
 }
 
-/* -------------------- SWORD SYSTEM -------------------- */
-let swordEquipped = false;
-let swordSwinging = false;
-let swordCooldown = false;
+/* Pause & settings wiring */
+const pauseEl = document.getElementById('pause');
+const resumeBtn = document.getElementById('resumeBtn');
+const resetBtn = document.getElementById('resetBtn');
+const fovSlider = document.getElementById('fovSlider');
+const sensSlider = document.getElementById('sensSlider');
+const bobSlider = document.getElementById('bobSlider');
+const fogSlider = document.getElementById('fogSlider');
+const fovVal = document.getElementById('fovVal');
+const sensVal = document.getElementById('sensVal');
+const bobVal = document.getElementById('bobVal');
+const fogVal = document.getElementById('fogVal');
+const applyBtn = document.getElementById('applyBtn');
 
-const swordGroup = new THREE.Group();
-camera.add(swordGroup);
+/* Standard/default settings */
+const STANDARDS = {
+  fov: 75,
+  sensitivity: 1.0,
+  bob: 0.22,
+  fog: 0.60
+};
 
-// FPS-style position
-swordGroup.position.set(0.6, -0.6, -1.2);
-swordGroup.rotation.set(0, 0.5, 0);
+/* initialize UI values */
+function updateUIFromSliders(){
+  fovVal.textContent = fovSlider.value;
+  sensVal.textContent = parseFloat(sensSlider.value).toFixed(2);
+  bobVal.textContent = parseFloat(bobSlider.value).toFixed(2);
+  fogVal.textContent = parseFloat(fogSlider.value).toFixed(2);
+}
+fovSlider.value = STANDARDS.fov;
+sensSlider.value = STANDARDS.sensitivity;
+bobSlider.value = STANDARDS.bob;
+fogSlider.value = STANDARDS.fog;
+updateUIFromSliders();
 
-// Silver sword model
-const bladeGeo = new THREE.BoxGeometry(0.1, 1.0, 0.15);
-const bladeMat = new THREE.MeshStandardMaterial({ color: 0xd9d9d9, metalness: 1, roughness: 0.15 });
-const blade = new THREE.Mesh(bladeGeo, bladeMat);
-blade.position.y = 0.5;
+/* setPaused: show/hide pause menu */
+function setPaused(state){
+  paused = !!state;
+  pauseEl.style.display = paused ? 'flex' : 'none';
+  if(paused) {
+    // exit pointer lock so user can interact with UI
+    try { document.exitPointerLock(); } catch(e){}
+  } else {
+    // request pointer lock again
+    try { document.body.requestPointerLock(); } catch(e){}
+  }
+}
+resumeBtn.addEventListener('click', ()=> setPaused(false));
 
-const handleGeo = new THREE.BoxGeometry(0.15, 0.4, 0.15);
-const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-const handle = new THREE.Mesh(handleGeo, handleMat);
-handle.position.y = -0.3;
-
-swordGroup.add(blade);
-swordGroup.add(handle);
-
-swordGroup.visible = false;
-
-// Equip / de-equip
-document.addEventListener("keydown", e => {
-  if (e.key === "1") {
-    swordEquipped = !swordEquipped;
-    swordGroup.visible = swordEquipped;
+/* P toggles pause; Esc opens pause menu */
+addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    setPaused(true);
+  } else if(e.key.toLowerCase() === 'p'){
+    setPaused(!paused);
   }
 });
 
-// Attack
-document.addEventListener("mousedown", () => {
-  if (!swordEquipped || swordSwinging || swordCooldown) return;
+/* live display of slider values */
+fovSlider.addEventListener('input', updateUIFromSliders);
+sensSlider.addEventListener('input', updateUIFromSliders);
+bobSlider.addEventListener('input', updateUIFromSliders);
+fogSlider.addEventListener('input', updateUIFromSliders);
 
-  swordSwinging = true;
-  swordCooldown = true;
-
-  let swingProgress = 0;
-
-  const swingInterval = setInterval(() => {
-    swingProgress += 0.05;
-
-    // Weighty swing arc
-    swordGroup.rotation.x = -swingProgress * 1.2;
-    swordGroup.rotation.y = 0.5 + swingProgress * 0.4;
-
-    // Melee hitbox (D3)
-    if (swingProgress > 0.3 && swingProgress < 0.35) {
-      const hitbox = new THREE.Sphere(
-        new THREE.Vector3(
-          player.position.x + Math.sin(player.rotation.y) * 1.5,
-          player.position.y + 1.2,
-          player.position.z + Math.cos(player.rotation.y) * 1.5
-        ),
-        1.0
-      );
-
-      console.log("HITBOX ACTIVE");
-    }
-
-    if (swingProgress >= 1) {
-      clearInterval(swingInterval);
-
-      // Return to idle
-      let returnProgress = 0;
-      const returnInterval = setInterval(() => {
-        returnProgress += 0.05;
-        swordGroup.rotation.x = -1.2 + returnProgress * 1.2;
-        swordGroup.rotation.y = 0.9 - returnProgress * 0.4;
-
-        if (returnProgress >= 1) {
-          clearInterval(returnInterval);
-          swordSwinging = false;
-
-          // Cooldown
-          setTimeout(() => {
-            swordCooldown = false;
-          }, 200);
-        }
-      }, 16);
-    }
-  }, 16);
+/* Apply button: apply current slider values */
+applyBtn.addEventListener('click', ()=> {
+  camera.fov = parseFloat(fovSlider.value);
+  camera.updateProjectionMatrix();
+  sensitivity = parseFloat(sensSlider.value);
+  bobAmt = parseFloat(bobSlider.value);
+  const t = parseFloat(fogSlider.value);
+  scene.fog.density = lerp(minDensity, maxDensity, clamp(t,0,1));
 });
 
-/* -------------------- UPDATE MOVEMENT -------------------- */
+/* Reset to standard button: set sliders to defaults and apply */
+resetBtn.addEventListener('click', ()=> {
+  fovSlider.value = STANDARDS.fov;
+  sensSlider.value = STANDARDS.sensitivity;
+  bobSlider.value = STANDARDS.bob;
+  fogSlider.value = STANDARDS.fog;
+  updateUIFromSliders();
+  // apply immediately
+  camera.fov = STANDARDS.fov;
+  camera.updateProjectionMatrix();
+  sensitivity = STANDARDS.sensitivity;
+  bobAmt = STANDARDS.bob;
+  scene.fog.density = lerp(minDensity, maxDensity, clamp(STANDARDS.fog,0,1));
+});
+
+/* -------------------- Movement update (jump while running, exhaustion rules) -------------------- */
 function updateMovement(delta){
   if(paused) return;
 
-  direction.set(0,0,0);
+  const dir = new THREE.Vector3();
+  const forward = new THREE.Vector3(Math.sin(player.rotation.y),0,Math.cos(player.rotation.y)).normalize();
+  const right = new THREE.Vector3(Math.cos(player.rotation.y),0,-Math.sin(player.rotation.y)).normalize();
 
-  forward.set(Math.sin(player.rotation.y),0,Math.cos(player.rotation.y)).normalize();
-  right.set(Math.cos(player.rotation.y),0,-Math.sin(player.rotation.y)).normalize();
-
-  if(keys["w"]) direction.sub(forward);
-  if(keys["s"]) direction.add(forward);
-
-  if(keys["a"]) direction.sub(right);
-  if(keys["d"]) direction.add(right);
+  if(keys['w']) dir.sub(forward);
+  if(keys['s']) dir.add(forward);
+  if(keys['a']) dir.sub(right);
+  if(keys['d']) dir.add(right);
 
   let speed = baseSpeed;
+  const wantsSprint = !!keys['shift'];
+  const canSprint = (stamina > 0) && !exhausted;
 
-  if (keys["shift"] && stamina > 0) {
-    speed *= sprintMultiplier;
-    stamina -= staminaDrain * delta;
-    if (stamina < 0) stamina = 0;
+  if (wantsSprint && canSprint) {
+    speed *= sprintMult;
+    stamina -= drain * delta;
+    if (stamina <= 0) {
+      stamina = 0;
+      exhausted = true;
+    }
   } else {
-    stamina += staminaRegen * delta;
-    if (stamina > maxStamina) stamina = maxStamina;
-  }
-
-  if (stamina <= 0) speed = baseSpeed;
-
-  const moving = direction.length()>0;
-
-  if(moving){
-    direction.normalize();
-
-    const newPos = player.position.clone().addScaledVector(direction, speed * delta);
-
-    if (!collidesWithWall(newPos)) {
-      player.position.copy(newPos);
+    stamina += regen * delta;
+    if (stamina >= maxStamina) {
+      stamina = maxStamina;
+      exhausted = false;
     }
   }
 
-  const groundY = terrainHeight(player.position.x,player.position.z);
-  const onGround = player.position.y <= groundY+0.01;
+  if (exhausted) {
+    speed = baseSpeed * exhaustSpeedFactor;
+  }
+
+  // horizontal movement with simple collision against walls
+  if(dir.length() > 0){
+    dir.normalize();
+    const attemptedPos = player.position.clone().addScaledVector(dir, speed * delta);
+    attemptedPos.y = player.position.y;
+    if(!collidesWithWall(attemptedPos)){
+      player.position.copy(attemptedPos);
+    } else {
+      // try sliding on axes
+      const tryX = player.position.clone().add(new THREE.Vector3(dir.x * speed * delta, 0, 0));
+      const tryZ = player.position.clone().add(new THREE.Vector3(0, 0, dir.z * speed * delta));
+      if(!collidesWithWall(tryX)) player.position.copy(tryX);
+      else if(!collidesWithWall(tryZ)) player.position.copy(tryZ);
+    }
+  }
+
+  // ground / jump handling
+  const groundY = terrainHeight(player.position.x, player.position.z);
+  const onGround = player.position.y <= groundY + 0.01;
 
   if(onGround){
     player.position.y = groundY;
     velocityY = 0;
-    if(keys[" "]) velocityY = jumpForce;
+    if(keys[' ']) {
+      velocityY = jumpForce;
+    }
   }
 
   velocityY += gravity * delta;
   player.position.y += velocityY * delta;
-
   if(player.position.y < groundY){
     player.position.y = groundY;
     velocityY = 0;
   }
 
-  // Head bob + sword bob
-  if(moving && onGround){
-    bobTime += delta*bobSpeed*(keys["shift"]?2:1);
-    const bobOffset = Math.sin(bobTime)*bobAmount;
-
-    camera.position.y = eyeHeight + bobOffset;
-
-    if (swordEquipped && !swordSwinging) {
-      swordGroup.position.y = -0.6 + bobOffset * 0.5;
-    }
+  // head bob
+  const sprintActive = wantsSprint && canSprint;
+  if(dir.length()>0 && onGround){
+    bobTime += delta * bobSpeed * (sprintActive ? 2 : 1);
+    camera.position.y = 1.7 + Math.sin(bobTime) * bobAmt;
   } else {
-    camera.position.y += (eyeHeight-camera.position.y)*0.1;
+    camera.position.y += (1.7 - camera.position.y) * 0.1;
+  }
 
-    if (swordEquipped && !swordSwinging) {
-      swordGroup.position.y += (-0.6 - swordGroup.position.y)*0.1;
+  staminaBar.style.width = `${(stamina/maxStamina*100).toFixed(1)}%`;
+}
+
+/* -------------------- Animation loop (original tree sway behavior) -------------------- */
+let last = performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const delta = (now - last) / 1000;
+  last = now;
+
+  updateMovement(delta);
+
+  // original gentle sway for cherry trees (no canopy clamping)
+  for (const t of cherryGroup) {
+    t.phase += delta * t.speed;
+    t.group.rotation.x = Math.sin(t.phase * 0.7) * t.amplitude * 2;
+    t.group.rotation.z = Math.cos(t.phase * 0.9) * t.amplitude * 2;
+    for (let i = 0; i < t.canopySpheres.length; i++) {
+      const s = t.canopySpheres[i];
+      s.position.y = 1.05 * t.group.scale.y + Math.sin(t.phase + i) * (t.amplitude * 4);
     }
   }
 
-  const bar = document.getElementById("staminaBar");
-  bar.style.width = (stamina / maxStamina * 100) + "%";
-  if (stamina > 60) bar.style.background = "limegreen";
-  else if (stamina > 30) bar.style.background = "yellow";
-  else bar.style.background = "red";
-}
-
-/* -------------------- LOOP -------------------- */
-let last=performance.now();
-function animate(){
-  requestAnimationFrame(animate);
-  const now=performance.now();
-  const delta=(now-last)/1000;
-  last=now;
-  updateMovement(delta);
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 animate();
 
-window.addEventListener("resize",()=>{
-  camera.aspect=window.innerWidth/window.innerHeight;
+/* Resize */
+addEventListener('resize', ()=> {
+  camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
 });
+
+/* Debug helpers */
+window._terrainHeight = terrainHeight;
+window._player = player;
+window._cherry = cherryGroup;
+
 </script>
 </body>
 </html>
