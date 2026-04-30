@@ -20,6 +20,20 @@
       background:rgba(0,0,0,0.35); padding:8px 10px; border-radius:6px;
     }
 
+    #weaponHUD {
+      position:absolute; right:12px; top:12px; z-index:60;
+      color:#fff; font-family:Arial,Helvetica,sans-serif;
+      background:rgba(0,0,0,0.35); padding:8px 10px; border-radius:6px;
+      text-align:right;
+    }
+
+    #enemyCount {
+      position:absolute; right:12px; top:70px; z-index:60;
+      color:#ff6b6b; font-family:Arial,Helvetica,sans-serif;
+      background:rgba(0,0,0,0.35); padding:8px 10px; border-radius:6px;
+      text-align:right;
+    }
+
     #staminaContainer {
       position:absolute; left:12px; bottom:18px; z-index:70;
       width:300px; height:28px;
@@ -42,15 +56,78 @@
       position:fixed; inset:0; display:none; align-items:center; justify-content:center;
       background:rgba(0,0,0,0.6); z-index:80; color:#fff; font-family:Arial,Helvetica,sans-serif;
     }
-    #pause .panel { background:rgba(10,10,20,0.95); padding:18px; border-radius:8px; text-align:center; max-width:520px; }
-    #pause button { margin:8px; padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
+    #pause .panel { background:rgba(10,10,20,0.95); padding:16px 18px; border-radius:10px; text-align:center; max-width:420px; width:min(92vw,420px); }
+    #pause button { margin:8px; padding:8px 12px; border-radius:8px; border:none; cursor:pointer; background:rgba(255,255,255,0.08); color:#fff; transition:background .2s; }
+    #pause button:hover { background:rgba(255,255,255,0.14); }
+    #keybindsSection { display:none; margin-top:10px; text-align:left; }
 
     .settings-row { display:flex; align-items:center; gap:12px; justify-content:space-between; margin:8px 0; }
     .settings-row label { flex:1; text-align:left; font-size:14px; }
     .settings-row input[type="range"] { flex:1.6; }
+    .settings-row span { width:44px; text-align:right; }
 
     .controls-row { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; align-items:center; }
     .controls-row button { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
+
+    #playerHP {
+      position:absolute; left:12px; bottom:60px; z-index:70;
+      width:300px; height:28px;
+      background:rgba(0,0,0,0.75);
+      border:2px solid rgba(255,100,100,0.3);
+      border-radius:8px;
+      padding:4px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.6);
+    }
+    #playerHPBar {
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#ff4444,#cc0000);
+      border-radius:6px;
+      transition:width .12s linear;
+      box-shadow: inset 0 -4px 8px rgba(0,0,0,0.25);
+    }
+    #playerHPText {
+      position:absolute; left:18px; bottom:65px; z-index:70;
+      color:#ff8888; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:bold;
+    }
+
+    #lockStatus {
+      position:absolute; bottom:150px; left:50%; transform:translateX(-50%); z-index:70;
+      background:rgba(255,50,50,0.7); color:#fff; padding:12px 20px; border-radius:6px;
+      font-family:Arial,sans-serif; font-weight:bold; text-align:center;
+      display: none;
+    }
+
+    #hotbar {
+      position:absolute; left:50%; bottom:12px; transform:translateX(-50%);
+      z-index:70; display:flex; gap:6px; background:rgba(0,0,0,0.6);
+      padding:8px; border-radius:8px;
+    }
+    .hotbar-slot {
+      position:relative;
+      width:50px; height:50px; background:rgba(100,100,100,0.5); border:2px solid rgba(255,255,255,0.2);
+      border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:24px;
+      cursor:pointer; transition:all 0.1s;
+    }
+    .hotbar-slot.active {
+      background:rgba(100,200,255,0.6); border-color:rgba(255,255,255,0.8); box-shadow:0 0 10px rgba(100,200,255,0.5);
+    }
+    .hotbar-slot:hover {
+      transform:scale(1.1);
+    }
+    .hotbar-slot-number {
+      position:absolute; bottom:2px; right:4px; font-size:10px; color:rgba(255,255,255,0.5);
+    }
+    .hotbar-slot-count {
+      position:absolute; bottom:2px; left:4px; font-size:10px; color:rgba(255,255,255,0.85);
+    }
+
+    #hotbarItemLabel {
+      position:absolute; left:50%; bottom:74px; transform:translateX(-50%);
+      z-index:71; color:#fff; font-size:13px;
+      background:rgba(0,0,0,0.64); padding:4px 10px; border-radius:8px;
+      pointer-events:none; white-space:nowrap;
+    }
 
     @media (max-width:600px){
       #ui { font-size:13px; }
@@ -63,20 +140,40 @@
   </style>
 </head>
 <body>
-  <div id="ui">Press P or Esc to open Pause Menu</div>
+  <div id="ui">Press P or Esc to open Pause Menu | CLICK to lock mouse and play | E = pickup / eat apples</div>
+  <div id="weaponHUD">🗡️ SWORD | Click to Attack</div>
+  <div id="enemyCount">Enemies: 0</div>
   <div id="crosshair">+</div>
 
+  <div id="playerHPText">Health</div>
+  <div id="playerHP"><div id="playerHPBar"></div></div>
   <div id="staminaContainer"><div id="staminaBar"></div></div>
+
+  <div id="lockStatus">CLICK TO PLAY - Lock Mouse Pointer</div>
+
+  <div id="hotbar">
+    <div class="hotbar-slot active" data-slot="1">🗡️<span class="hotbar-slot-number">1</span></div>
+    <div class="hotbar-slot" data-slot="2">?<span class="hotbar-slot-number">2</span></div>
+    <div class="hotbar-slot" data-slot="3">?<span class="hotbar-slot-number">3</span></div>
+    <div class="hotbar-slot" data-slot="4">?<span class="hotbar-slot-number">4</span></div>
+    <div class="hotbar-slot" data-slot="5">?<span class="hotbar-slot-number">5</span></div>
+    <div class="hotbar-slot" data-slot="6">?<span class="hotbar-slot-number">6</span></div>
+    <div class="hotbar-slot" data-slot="7">?<span class="hotbar-slot-number">7</span></div>
+    <div class="hotbar-slot" data-slot="8">?<span class="hotbar-slot-number">8</span></div>
+    <div class="hotbar-slot" data-slot="9">?<span class="hotbar-slot-number">9</span></div>
+  </div>
+  <div id="hotbarItemLabel">Sword</div>
 
   <div id="pause">
     <div class="panel">
       <h2>Paused</h2>
       <div style="margin:8px 0">Press P or Esc to resume/close</div>
       <button id="resumeBtn">Resume</button>
+      <button id="toggleKeybindsBtn">Show Keybinds</button>
 
-      <div style="text-align:left; margin-top:12px;">
+      <div id="keybindsSection">
         <strong>Keybinds</strong>
-        <ul style="text-align:left; margin:8px 0 0 18px; padding:0; line-height:1.6;">
+        <ul style="margin:8px 0 0 18px; padding:0; line-height:1.6;">
           <li>W = forward</li>
           <li>S = backward</li>
           <li>A / D = strafe</li>
@@ -85,6 +182,8 @@
           <li>P = pause (toggle)</li>
           <li>Esc = open pause menu</li>
           <li>Mouse = look around</li>
+          <li>Click = sword attack</li>
+          <li>1-9 / Scroll = change items</li>
         </ul>
       </div>
 
@@ -114,7 +213,13 @@
         <div class="settings-row">
           <label for="fogSlider">Fog Amount (0–1)</label>
           <input id="fogSlider" type="range" min="0" max="1" step="0.01" value="0.60">
-          <span id="fogVal" style="width:44px; text-align:right;">0.60</span>
+          <span id="fogVal">0.60</span>
+        </div>
+
+        <div class="settings-row">
+          <label for="brightnessSlider">Brightness</label>
+          <input id="brightnessSlider" type="range" min="0.3" max="1.2" step="0.05" value="0.75">
+          <span id="brightnessVal">0.75</span>
         </div>
 
         <div class="controls-row">
@@ -159,13 +264,13 @@ function terrainHeight(x,z){
 
 /* -------------------- Scene, Renderer, Camera -------------------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b1a2b);
+scene.background = new THREE.Color(0x4b6a86);
 
 /* Fog mapping */
-const minDensity = 0.0005;
-const maxDensity = 0.02;
-const defaultFogSlider = 0.60;
-scene.fog = new THREE.FogExp2(0x0b1a2b, lerp(minDensity, maxDensity, defaultFogSlider));
+const minDensity = 0.00012;
+const maxDensity = 0.012;
+const defaultFogSlider = 0.77;
+scene.fog = new THREE.FogExp2(0x4b6a86, lerp(minDensity, maxDensity, defaultFogSlider));
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
@@ -180,17 +285,607 @@ const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000
 camera.position.set(0,1.7,0);
 player.add(camera);
 
+/* Position player on terrain at start */
+const startTerrainHeight = terrainHeight(0, 0);
+player.position.y = startTerrainHeight;
+
+/* -------------------- Player System -------------------- */
+let playerHealth = 100;
+const maxPlayerHealth = 100;
+
+function updatePlayerHPDisplay() {
+  const hpPercent = clamp(playerHealth / maxPlayerHealth, 0, 1);
+  document.getElementById('playerHPBar').style.width = `${(hpPercent * 100).toFixed(1)}%`;
+  document.getElementById('playerHPText').textContent = `Health: ${Math.max(0, Math.floor(playerHealth))}/${maxPlayerHealth}`;
+}
+
+/* -------------------- Inventory/Hotbar System -------------------- */
+let currentSlot = 1;
+const itemDefinitions = {
+  sword: { icon: '🗡️', name: 'Sword', placeable: false, consumable: false, stackable: false },
+  ender_pearl: { icon: '🟣', name: 'Ender Pearl', placeable: false, consumable: false, stackable: true },
+  stone: { icon: '🪨', name: 'Stone', placeable: true, consumable: false, stackable: true, material: new THREE.MeshStandardMaterial({ color: 0x7b7b7b, roughness: 0.95 }) },
+  wood: { icon: '🪵', name: 'Wood', placeable: true, consumable: false, stackable: true, material: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.95 }) },
+  planks: { icon: '🟫', name: 'Planks', placeable: true, consumable: false, stackable: true, material: new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.95 }) },
+  apple: { icon: '🍎', name: 'Apple', placeable: false, consumable: true, stackable: true, heal: 25 }
+};
+
+const inventory = {
+  1: { type: 'sword', count: 1 },
+  2: { type: 'ender_pearl', count: 4 },
+  3: { type: 'stone', count: 12 },
+  4: { type: 'wood', count: 8 },
+  5: { type: 'planks', count: 10 },
+  6: null,
+  7: null,
+  8: null,
+  9: null
+};
+
+const blocks = [];
+const applePickups = [];
+const raycaster = new THREE.Raycaster();
+const weaponHUD = document.getElementById('weaponHUD');
+const itemLabel = document.getElementById('hotbarItemLabel');
+const placePreview = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, opacity: 0.25, transparent: true, depthWrite: false })
+);
+placePreview.visible = false;
+scene.add(placePreview);
+
+function getCurrentItem() {
+  return inventory[currentSlot];
+}
+
+function addItemToInventory(type, amount = 1) {
+  if (!itemDefinitions[type]) return false;
+  if (itemDefinitions[type].stackable) {
+    for (const slot of Object.keys(inventory)) {
+      const item = inventory[slot];
+      if (item && item.type === type) {
+        item.count += amount;
+        updateHotbarDisplay();
+        return true;
+      }
+    }
+  }
+
+  const emptySlot = Object.keys(inventory).find(slot => inventory[slot] === null);
+  if (emptySlot) {
+    inventory[emptySlot] = { type, count: amount };
+    updateHotbarDisplay();
+    return true;
+  }
+
+  return false;
+}
+
+function updateWeaponHUD() {
+  const item = getCurrentItem();
+  if (item) {
+    weaponHUD.textContent = `${itemDefinitions[item.type].icon} ${itemDefinitions[item.type].name}${item.count > 1 ? ` x${item.count}` : ''}`;
+  } else {
+    weaponHUD.textContent = 'Empty';
+  }
+}
+
+function updateHotbarDisplay() {
+  document.querySelectorAll('.hotbar-slot').forEach(slotEl => {
+    const slot = parseInt(slotEl.getAttribute('data-slot'));
+    const item = inventory[slot];
+    const numberSpan = slotEl.querySelector('.hotbar-slot-number') || (() => {
+      const span = document.createElement('span');
+      span.className = 'hotbar-slot-number';
+      slotEl.appendChild(span);
+      return span;
+    })();
+
+    slotEl.textContent = item ? itemDefinitions[item.type].icon : '?';
+    slotEl.appendChild(numberSpan);
+    numberSpan.textContent = slot;
+
+    let countSpan = slotEl.querySelector('.hotbar-slot-count');
+    if (item && item.count > 1) {
+      if (!countSpan) {
+        countSpan = document.createElement('span');
+        countSpan.className = 'hotbar-slot-count';
+        slotEl.appendChild(countSpan);
+      }
+      countSpan.textContent = item.count;
+    } else if (countSpan) {
+      countSpan.remove();
+    }
+  });
+  if (itemLabel) {
+    const item = getCurrentItem();
+    itemLabel.textContent = item ? `${itemDefinitions[item.type].name}${item.count > 1 ? ` x${item.count}` : ''}` : 'Empty';
+  }
+
+  document.querySelectorAll('.hotbar-slot').forEach(slot => slot.classList.remove('active'));
+  document.querySelector(`.hotbar-slot[data-slot="${currentSlot}"]`).classList.add('active');
+  updateWeaponHUD();
+}
+
+function switchSlot(newSlot) {
+  if (newSlot < 1 || newSlot > 9) return;
+  currentSlot = newSlot;
+  document.querySelectorAll('.hotbar-slot').forEach(slot => slot.classList.remove('active'));
+  document.querySelector(`.hotbar-slot[data-slot="${newSlot}"]`).classList.add('active');
+  const item = getCurrentItem();
+  if (item && item.type === 'sword') sword.show();
+  else sword.hide();
+  updateWeaponHUD();
+  if (itemLabel) {
+    itemLabel.textContent = item ? itemDefinitions[item.type].name : 'Empty';
+  }
+}
+
+function getBlockAtPosition(pos) {
+  return blocks.find(b => Math.abs(b.mesh.position.x - pos.x) < 0.1 && Math.abs(b.mesh.position.z - pos.z) < 0.1 && Math.abs(b.mesh.position.y - pos.y) < 0.1);
+}
+
+function getGroundHeightAtPosition(position) {
+  let groundY = terrainHeight(position.x, position.z);
+  for (const b of blocks) {
+    const minX = b.mesh.position.x - 0.5;
+    const maxX = b.mesh.position.x + 0.5;
+    const minZ = b.mesh.position.z - 0.5;
+    const maxZ = b.mesh.position.z + 0.5;
+    if (position.x >= minX && position.x <= maxX && position.z >= minZ && position.z <= maxZ) {
+      groundY = Math.max(groundY, b.mesh.position.y + 0.5);
+    }
+  }
+  return groundY;
+}
+
+function getTargetHit(includeTerrain = true) {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const objects = blocks.map(b => b.mesh);
+  if (includeTerrain) objects.push(terrain);
+  const hits = raycaster.intersectObjects(objects, false);
+  return hits.length > 0 ? hits[0] : null;
+}
+
+function updateBlockPreview() {
+  const item = getCurrentItem();
+  if (!item || !itemDefinitions[item.type].placeable) {
+    placePreview.visible = false;
+    return;
+  }
+
+  const hit = getTargetHit();
+  if (!hit || hit.distance > 3) {
+    placePreview.visible = false;
+    return;
+  }
+
+  const previewPos = new THREE.Vector3();
+  if (hit.object === terrain) {
+    previewPos.copy(hit.point);
+    previewPos.x = Math.round(previewPos.x);
+    previewPos.z = Math.round(previewPos.z);
+    previewPos.y = Math.round(terrainHeight(previewPos.x, previewPos.z) + 0.5);
+  } else {
+    previewPos.copy(hit.point).add(hit.face.normal.clone().multiplyScalar(0.52));
+    previewPos.x = Math.round(previewPos.x);
+    previewPos.y = Math.round(previewPos.y);
+    previewPos.z = Math.round(previewPos.z);
+  }
+
+  if (getBlockAtPosition(previewPos)) {
+    placePreview.visible = false;
+    return;
+  }
+
+  placePreview.position.copy(previewPos);
+  placePreview.visible = true;
+}
+
+function createBlock(type, pos) {
+  const mat = itemDefinitions[type].material ? itemDefinitions[type].material.clone() : new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+  mesh.position.copy(pos);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  mesh.updateMatrixWorld();
+  const box = new THREE.Box3().setFromObject(mesh);
+  blocks.push({ type, mesh, box });
+}
+
+function placeBlock() {
+  const item = getCurrentItem();
+  if (!item || !itemDefinitions[item.type].placeable || item.count <= 0) return false;
+  const hit = getTargetHit();
+  if (!hit || hit.distance > 3) return false;
+
+  let placePos = new THREE.Vector3();
+  if (hit.object === terrain) {
+    placePos.copy(hit.point);
+    placePos.x = Math.round(placePos.x);
+    placePos.z = Math.round(placePos.z);
+    placePos.y = Math.round(terrainHeight(placePos.x, placePos.z) + 0.5);
+  } else {
+    placePos.copy(hit.point).add(hit.face.normal.clone().multiplyScalar(0.52));
+    placePos.x = Math.round(placePos.x);
+    placePos.y = Math.round(placePos.y);
+    placePos.z = Math.round(placePos.z);
+  }
+
+  if (getBlockAtPosition(placePos)) return false;
+  createBlock(item.type, placePos);
+  item.count--;
+  if (item.count <= 0) inventory[currentSlot] = null;
+  updateHotbarDisplay();
+  return true;
+}
+
+function useEnderPearl() {
+  const item = getCurrentItem();
+  if (!item || item.type !== 'ender_pearl' || item.count <= 0) return false;
+
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hits = raycaster.intersectObjects(blocks.map(b => b.mesh).concat(terrain), false);
+  let targetPos;
+  if (hits.length > 0 && hits[0].distance <= 20) {
+    targetPos = hits[0].point.clone();
+  } else {
+    targetPos = camera.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0, -3).applyQuaternion(camera.quaternion));
+  }
+
+  targetPos.y = getGroundHeightAtPosition(targetPos) + 1.7;
+  player.position.copy(targetPos);
+  item.count--;
+  if (item.count <= 0) inventory[currentSlot] = null;
+  updateHotbarDisplay();
+  return true;
+}
+
+function tryPickupApple() {
+  const pickupRange = 2;
+  for (let i = applePickups.length - 1; i >= 0; i--) {
+    const apple = applePickups[i];
+    if (apple.mesh.position.distanceTo(player.position) < pickupRange) {
+      scene.remove(apple.mesh);
+      applePickups.splice(i, 1);
+      addItemToInventory('apple', 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+function eatApple() {
+  const item = getCurrentItem();
+  if (!item || item.type !== 'apple') return;
+  item.count--;
+  playerHealth = Math.min(maxPlayerHealth, playerHealth + itemDefinitions.apple.heal);
+  updatePlayerHPDisplay();
+  if (item.count <= 0) inventory[currentSlot] = null;
+  updateHotbarDisplay();
+}
+
+function breakTargetedBlock() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hits = raycaster.intersectObjects(blocks.map(b => b.mesh), false);
+  if (hits.length === 0 || hits[0].distance > 3) return false;
+  const mesh = hits[0].object;
+  const index = blocks.findIndex(b => b.mesh === mesh);
+  if (index === -1) return false;
+  const block = blocks[index];
+  scene.remove(block.mesh);
+  blocks.splice(index, 1);
+  addItemToInventory(block.type, 1);
+  return true;
+}
+
+function createApplePickup(x, z) {
+  const y = terrainHeight(x, z) + 0.22;
+  const appleMat = new THREE.MeshStandardMaterial({ color: 0xec3434, roughness: 0.5, metalness: 0.25 });
+  const apple = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), appleMat);
+  apple.position.set(x, y, z);
+  apple.castShadow = true;
+  apple.receiveShadow = true;
+
+  const stem = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.06), new THREE.MeshStandardMaterial({ color: 0x2e4d1b, roughness: 0.6 }));
+  stem.position.set(0, 0.24, 0);
+  apple.add(stem);
+  scene.add(apple);
+  applePickups.push({ mesh: apple });
+}
+
+function spawnApplePickups() {
+  for (const tp of treePositions) {
+    for (let i = 0; i < 2; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 1.5 + Math.random() * 1.5;
+      createApplePickup(tp.x + Math.cos(angle) * radius, tp.z + Math.sin(angle) * radius);
+    }
+  }
+}
+
+/* -------------------- Enemy System -------------------- */
+class Enemy {
+  constructor(x, z) {
+    this.position = new THREE.Vector3(x, terrainHeight(x, z), z);
+    this.health = 30;
+    this.maxHealth = 30;
+    this.speed = 4;
+    this.detectionRange = 150;
+    this.attackRange = 2.5;
+    this.lastAttackTime = 0;
+    this.attackCooldown = 1.0;
+    this.attackDamage = 8;
+    
+    // Create enemy as a group with Minecraft zombie style
+    this.mesh = new THREE.Group();
+    scene.add(this.mesh);
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3f8c8f, roughness: 0.9, metalness: 0.0 });
+    const bodyGeo = new THREE.BoxGeometry(0.5, 0.9, 0.25);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.55;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    this.mesh.add(body);
+
+    const headMat = new THREE.MeshStandardMaterial({ color: 0x6f8e49, roughness: 0.9, metalness: 0.0 });
+    const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 1.25;
+    head.castShadow = true;
+    head.receiveShadow = true;
+    this.mesh.add(head);
+
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x04120c });
+    const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.04), eyeMat);
+    leftEye.position.set(-0.11, 1.35, 0.26);
+    this.mesh.add(leftEye);
+
+    const rightEye = leftEye.clone();
+    rightEye.position.x = 0.11;
+    this.mesh.add(rightEye);
+
+    const mouthMat = new THREE.MeshBasicMaterial({ color: 0x2f4a2d });
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.03), mouthMat);
+    mouth.position.set(0, 1.15, 0.25);
+    this.mesh.add(mouth);
+
+    const armGeo = new THREE.BoxGeometry(0.16, 0.7, 0.16);
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x3f8c8f, roughness: 0.9, metalness: 0.0 });
+    const leftArm = new THREE.Mesh(armGeo, armMat);
+    leftArm.position.set(-0.33, 0.9, 0);
+    leftArm.castShadow = true;
+    leftArm.receiveShadow = true;
+    this.mesh.add(leftArm);
+
+    const rightArm = leftArm.clone();
+    rightArm.position.x = 0.33;
+    this.mesh.add(rightArm);
+
+    const legGeo = new THREE.BoxGeometry(0.18, 0.8, 0.18);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x4c2a7a, roughness: 0.9, metalness: 0.0 });
+    const leftLeg = new THREE.Mesh(legGeo, legMat);
+    leftLeg.position.set(-0.12, 0.0, 0);
+    leftLeg.castShadow = true;
+    leftLeg.receiveShadow = true;
+    this.mesh.add(leftLeg);
+
+    const rightLeg = leftLeg.clone();
+    rightLeg.position.x = 0.12;
+    this.mesh.add(rightLeg);
+
+    const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x3f8c8f, roughness: 0.9, metalness: 0.0 });
+    const leftSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), sleeveMat);
+    leftSleeve.position.set(-0.33, 0.65, 0);
+    this.mesh.add(leftSleeve);
+    const rightSleeve = leftSleeve.clone();
+    rightSleeve.position.x = 0.33;
+    this.mesh.add(rightSleeve);
+
+    this.mesh.position.copy(this.position);
+
+    // Health bar
+    const barGeo = new THREE.PlaneGeometry(1.0, 0.15);
+    const barMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    this.healthBar = new THREE.Mesh(barGeo, barMat);
+    this.healthBar.position.y = 2.2;
+    this.mesh.add(this.healthBar);
+    
+    this.wanderTimer = 0;
+    this.wanderInterval = Math.random() * 3 + 2;
+  }
+  
+  takeDamage(amount) {
+    this.health -= amount;
+  }
+  
+  update(deltaTime, playerPos) {
+    const distToPlayer = this.position.distanceTo(playerPos);
+    const timeNow = performance.now() / 1000;
+    
+    // Chase or wander
+    if (distToPlayer < this.detectionRange) {
+      const direction = playerPos.clone().sub(this.position).normalize();
+      this.position.addScaledVector(direction, this.speed * deltaTime);
+      
+      // Attack player if in range
+      if (distToPlayer < this.attackRange && timeNow - this.lastAttackTime > this.attackCooldown) {
+        playerHealth -= this.attackDamage;
+        this.lastAttackTime = timeNow;
+      }
+    } else {
+      this.wanderTimer += deltaTime;
+      if (this.wanderTimer > this.wanderInterval) {
+        this.wanderTimer = 0;
+        this.wanderInterval = Math.random() * 3 + 2;
+      }
+    }
+    
+    // Keep on terrain
+    const terrainY = terrainHeight(this.position.x, this.position.z);
+    this.position.y = terrainY;
+    
+    // Clamp to map bounds
+    this.position.x = clamp(this.position.x, -450, 450);
+    this.position.z = clamp(this.position.z, -450, 450);
+    
+    this.mesh.position.copy(this.position);
+    
+    // Face the player
+    const dirToPlayer = playerPos.clone().sub(this.position);
+    this.mesh.rotation.y = Math.atan2(dirToPlayer.x, dirToPlayer.z);
+    
+    // Update health bar
+    const healthPercent = clamp(this.health / this.maxHealth, 0, 1);
+    this.healthBar.scale.x = healthPercent;
+    this.healthBar.material.color.setHex(healthPercent > 0.5 ? 0x00ff00 : 0xff6600);
+  }
+  
+  isAlive() {
+    return this.health > 0;
+  }
+}
+
+const enemies = [];
+
+// Rare enemy spawn system
+function spawnEnemyIfRare() {
+  // Spawn chance: 0.3% per frame (very rare)
+  if (Math.random() < 0.003 && enemies.length < 5) {
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 100 + Math.random() * 150;
+    const spawnX = player.position.x + Math.cos(angle) * distance;
+    const spawnZ = player.position.z + Math.sin(angle) * distance;
+    enemies.push(new Enemy(spawnX, spawnZ));
+  }
+}
+
+/* -------------------- Sword System -------------------- */
+class Sword {
+  constructor() {
+    this.isAttacking = false;
+    this.attackStartTime = 0;
+    this.attackDuration = 0.4;
+    this.damage = 20;
+    this.hitEnemies = new Set();
+    
+    // Create sword as a group
+    this.mesh = new THREE.Group();
+    camera.add(this.mesh);
+    this.mesh.position.set(0.4, -0.6, -1.5);
+    
+    // Blade - bright silver
+    const bladeGeo = new THREE.BoxGeometry(0.08, 1.2, 0.02);
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.2, metalness: 0.95 });
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.position.y = 0.3;
+    blade.castShadow = true;
+    blade.receiveShadow = true;
+    this.mesh.add(blade);
+    
+    // Blade edge highlight
+    const edgeGeo = new THREE.BoxGeometry(0.09, 1.2, 0.003);
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x666666, emissiveIntensity: 0.3, roughness: 0.1, metalness: 1.0 });
+    const edge = new THREE.Mesh(edgeGeo, edgeMat);
+    edge.position.y = 0.3;
+    edge.position.z = 0.012;
+    this.mesh.add(edge);
+    
+    // Crossguard - gold/brass
+    const guardGeo = new THREE.BoxGeometry(0.3, 0.1, 0.08);
+    const guardMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.4, metalness: 0.8 });
+    const guard = new THREE.Mesh(guardGeo, guardMat);
+    guard.position.y = -0.2;
+    guard.castShadow = true;
+    guard.receiveShadow = true;
+    this.mesh.add(guard);
+    
+    // Handle - leather/wood
+    const handleGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.35, 8);
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.8, metalness: 0.0 });
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.position.y = -0.45;
+    handle.castShadow = true;
+    handle.receiveShadow = true;
+    this.mesh.add(handle);
+    
+    // Pommel - brass ball
+    const pommelGeo = new THREE.SphereGeometry(0.08, 12, 12);
+    const pommelMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.9 });
+    const pommel = new THREE.Mesh(pommelGeo, pommelMat);
+    pommel.position.y = -0.7;
+    pommel.castShadow = true;
+    pommel.receiveShadow = true;
+    this.mesh.add(pommel);
+  }
+  
+  attack() {
+    if (!this.isAttacking) {
+      this.isAttacking = true;
+      this.attackStartTime = performance.now() / 1000;
+      this.hitEnemies.clear();
+    }
+  }
+  
+  show() {
+    this.mesh.visible = true;
+  }
+  
+  hide() {
+    this.mesh.visible = false;
+  }
+  
+  update(deltaTime) {
+    if (this.isAttacking) {
+      const elapsed = performance.now() / 1000 - this.attackStartTime;
+      if (elapsed < this.attackDuration) {
+        // Swing animation - forward swing on x-axis
+        const progress = elapsed / this.attackDuration;
+        this.mesh.rotation.x = -Math.PI / 3 + progress * (Math.PI / 1.5);
+        
+        // Check for hits
+        this.checkHits();
+      } else {
+        this.isAttacking = false;
+        this.mesh.rotation.x = 0;
+        this.hitEnemies.clear();
+      }
+    }
+  }
+  
+  checkHits() {
+    // Get sword world position
+    const swordWorldPos = new THREE.Vector3();
+    this.mesh.getWorldPosition(swordWorldPos);
+    
+    const hitRange = 3;
+    for (const enemy of enemies) {
+      if (!this.hitEnemies.has(enemy) && swordWorldPos.distanceTo(enemy.position) < hitRange) {
+        enemy.takeDamage(this.damage);
+        this.hitEnemies.add(enemy);
+      }
+    }
+  }
+}
+
+const sword = new Sword();
+updateHotbarDisplay();
+sword.show(); // Make sword visible by default
+
 /* -------------------- Lights -------------------- */
-const hemi = new THREE.HemisphereLight(0x99bbff, 0x222233, 0.6);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x666666, 0.65);
 scene.add(hemi);
 
-const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+const dir = new THREE.DirectionalLight(0xffffff, 0.72);
 dir.position.set(80,160,40);
 dir.castShadow = true;
 dir.shadow.mapSize.set(1024,1024);
 scene.add(dir);
 
-const fill = new THREE.AmbientLight(0x223344, 0.25);
+const fill = new THREE.AmbientLight(0xffffff, 0.28);
 scene.add(fill);
 
 /* -------------------- Terrain -------------------- */
@@ -360,6 +1055,8 @@ for (const tp of treePositions) {
   createCherryTree(x, z, tp.s * 4);
 }
 
+spawnApplePickups();
+
 /* -------------------- Controls, movement, exhaustion rules -------------------- */
 let yaw=0, pitch=0;
 const keys = {};
@@ -381,7 +1078,63 @@ let sensitivity = 1.0;
 let exhausted = false;
 const exhaustSpeedFactor = 0.45; // faster exhausted speed per user request
 
-document.body.addEventListener('click', ()=> { if(!paused) document.body.requestPointerLock(); });
+document.body.addEventListener('click', ()=> {
+  if(!paused) {
+    document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+    if (document.pointerLockElement !== document.body) {
+      document.body.requestPointerLock().catch(() => {});
+    }
+    const item = getCurrentItem();
+    if (item && item.type === 'ender_pearl') {
+      useEnderPearl();
+      return;
+    }
+    if (item && item.type === 'sword') sword.attack();
+    breakTargetedBlock();
+  }
+});
+
+document.body.addEventListener('contextmenu', e => {
+  if(!paused) {
+    e.preventDefault();
+    const item = getCurrentItem();
+    if (item && itemDefinitions[item.type].placeable) {
+      placeBlock();
+    }
+  }
+});
+
+/* Hotbar slot clicking */
+document.querySelectorAll('.hotbar-slot').forEach(slot => {
+  slot.addEventListener('click', ()=> {
+    switchSlot(parseInt(slot.getAttribute('data-slot')));
+  });
+});
+
+/* Number key hotbar switching */
+addEventListener('keydown', e => {
+  if(!paused && (e.key >= '1' && e.key <= '9')) {
+    const num = parseInt(e.key);
+    switchSlot(num);
+  }
+  if(!paused && e.key.toLowerCase() === 'e') {
+    if (!tryPickupApple() && getCurrentItem()?.type === 'apple') {
+      eatApple();
+    }
+  }
+});
+
+/* Mouse wheel hotbar switching */
+addEventListener('wheel', e => {
+  if(!paused && document.pointerLockElement === document.body) {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      switchSlot(currentSlot === 1 ? 9 : currentSlot - 1);
+    } else {
+      switchSlot(currentSlot === 9 ? 1 : currentSlot + 1);
+    }
+  }
+}, { passive: false });
 addEventListener('mousemove', e => {
   if(document.pointerLockElement === document.body && !paused){
     yaw -= e.movementX * 0.002 * sensitivity;
@@ -394,8 +1147,12 @@ addEventListener('mousemove', e => {
 
 /* collidesWithWall checks only walls (trees have no hitbox now) */
 function collidesWithWall(newPos){
-  const box = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(newPos.x, newPos.y, newPos.z), new THREE.Vector3(1,2,1));
+  const box = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(newPos.x, newPos.y, newPos.z), new THREE.Vector3(0.8,1.8,0.8));
   for(const wb of wallBoxes) if(box.intersectsBox(wb)) return true;
+  for(const b of blocks) {
+    if (!b.box) b.box = new THREE.Box3().setFromObject(b.mesh);
+    if(box.intersectsBox(b.box)) return true;
+  }
   return false;
 }
 
@@ -412,13 +1169,18 @@ const sensVal = document.getElementById('sensVal');
 const bobVal = document.getElementById('bobVal');
 const fogVal = document.getElementById('fogVal');
 const applyBtn = document.getElementById('applyBtn');
+const toggleKeybindsBtn = document.getElementById('toggleKeybindsBtn');
+const keybindsSection = document.getElementById('keybindsSection');
+const brightnessSlider = document.getElementById('brightnessSlider');
+const brightnessVal = document.getElementById('brightnessVal');
 
 /* Standard/default settings */
 const STANDARDS = {
   fov: 75,
   sensitivity: 1.0,
   bob: 0.22,
-  fog: 0.60
+  fog: 0.60,
+  brightness: 0.75
 };
 
 /* initialize UI values */
@@ -427,12 +1189,20 @@ function updateUIFromSliders(){
   sensVal.textContent = parseFloat(sensSlider.value).toFixed(2);
   bobVal.textContent = parseFloat(bobSlider.value).toFixed(2);
   fogVal.textContent = parseFloat(fogSlider.value).toFixed(2);
+  brightnessVal.textContent = parseFloat(brightnessSlider.value).toFixed(2);
 }
 fovSlider.value = STANDARDS.fov;
 sensSlider.value = STANDARDS.sensitivity;
 bobSlider.value = STANDARDS.bob;
 fogSlider.value = STANDARDS.fog;
+brightnessSlider.value = STANDARDS.brightness;
 updateUIFromSliders();
+
+toggleKeybindsBtn.addEventListener('click', () => {
+  const visible = keybindsSection.style.display !== 'block';
+  keybindsSection.style.display = visible ? 'block' : 'none';
+  toggleKeybindsBtn.textContent = visible ? 'Hide Keybinds' : 'Show Keybinds';
+});
 
 /* setPaused: show/hide pause menu */
 function setPaused(state){
@@ -462,6 +1232,7 @@ fovSlider.addEventListener('input', updateUIFromSliders);
 sensSlider.addEventListener('input', updateUIFromSliders);
 bobSlider.addEventListener('input', updateUIFromSliders);
 fogSlider.addEventListener('input', updateUIFromSliders);
+brightnessSlider.addEventListener('input', updateUIFromSliders);
 
 /* Apply button: apply current slider values */
 applyBtn.addEventListener('click', ()=> {
@@ -471,6 +1242,10 @@ applyBtn.addEventListener('click', ()=> {
   bobAmt = parseFloat(bobSlider.value);
   const t = parseFloat(fogSlider.value);
   scene.fog.density = lerp(minDensity, maxDensity, clamp(t,0,1));
+  const brightness = parseFloat(brightnessSlider.value);
+  hemi.intensity = 0.8 * brightness;
+  dir.intensity = 1.2 * brightness;
+  fill.intensity = 0.5 * brightness;
 });
 
 /* Reset to standard button: set sliders to defaults and apply */
@@ -479,6 +1254,7 @@ resetBtn.addEventListener('click', ()=> {
   sensSlider.value = STANDARDS.sensitivity;
   bobSlider.value = STANDARDS.bob;
   fogSlider.value = STANDARDS.fog;
+  brightnessSlider.value = STANDARDS.brightness;
   updateUIFromSliders();
   // apply immediately
   camera.fov = STANDARDS.fov;
@@ -486,6 +1262,9 @@ resetBtn.addEventListener('click', ()=> {
   sensitivity = STANDARDS.sensitivity;
   bobAmt = STANDARDS.bob;
   scene.fog.density = lerp(minDensity, maxDensity, clamp(STANDARDS.fog,0,1));
+  hemi.intensity = 0.8 * STANDARDS.brightness;
+  dir.intensity = 1.2 * STANDARDS.brightness;
+  fill.intensity = 0.5 * STANDARDS.brightness;
 });
 
 /* -------------------- Movement update (jump while running, exhaustion rules) -------------------- */
@@ -541,7 +1320,7 @@ function updateMovement(delta){
   }
 
   // ground / jump handling
-  const groundY = terrainHeight(player.position.x, player.position.z);
+  const groundY = getGroundHeightAtPosition(player.position);
   const onGround = player.position.y <= groundY + 0.01;
 
   if(onGround){
@@ -573,6 +1352,22 @@ function updateMovement(delta){
 
 /* -------------------- Animation loop (original tree sway behavior) -------------------- */
 let last = performance.now();
+
+/* Request pointer lock on load */
+document.addEventListener('pointerlockchange', () => {
+  const lockStatus = document.getElementById('lockStatus');
+  if (document.pointerLockElement === document.body) {
+    lockStatus.style.display = 'none';
+  } else {
+    lockStatus.style.display = 'block';
+  }
+});
+
+// Initial check
+if (document.pointerLockElement !== document.body) {
+  document.getElementById('lockStatus').style.display = 'block';
+}
+
 function animate(){
   requestAnimationFrame(animate);
   const now = performance.now();
@@ -580,6 +1375,25 @@ function animate(){
   last = now;
 
   updateMovement(delta);
+  updatePlayerHPDisplay();
+
+  // Spawn enemies rarely
+  spawnEnemyIfRare();
+  
+  // Update enemies
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    enemies[i].update(delta, player.position);
+    if (!enemies[i].isAlive()) {
+      scene.remove(enemies[i].mesh);
+      enemies.splice(i, 1);
+    }
+  }
+  
+  // Update sword
+  sword.update(delta);
+  
+  // Update enemy count display
+  document.getElementById('enemyCount').textContent = `Enemies: ${enemies.length}`;
 
   // original gentle sway for cherry trees (no canopy clamping)
   for (const t of cherryGroup) {
@@ -607,6 +1421,10 @@ addEventListener('resize', ()=> {
 window._terrainHeight = terrainHeight;
 window._player = player;
 window._cherry = cherryGroup;
+window._enemies = enemies;
+window._sword = sword;
+window._playerHealth = () => playerHealth;
+window._takeDamage = (amt) => { playerHealth -= amt; };
 
 </script>
 </body>
